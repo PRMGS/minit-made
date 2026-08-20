@@ -25,72 +25,83 @@ body {
   font-family: var(--font-montserrat), Arial, Helvetica, sans-serif;
 }
 
-.btn-gold {
-  background: var(--gold);
-  color: #000;
-  font-weight: 700;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  transition: opacity 0.15s ease;
-}
-.btn-gold:hover {
-  opacity: 0.85;
-}
-.btn-gold:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
+/*
+ * Component classes live in the `components` layer on purpose.
+ *
+ * Unlayered, these sit after the Tailwind import at equal specificity, so they
+ * silently beat any utility touching the same property — `.card border-gold`
+ * kept the default border, `.card hover:border-neutral-600` never highlighted,
+ * and `.input w-auto` stayed full width in every admin dropdown. Utilities rank
+ * above components, so layering restores the expected override order.
+ */
+@layer components {
+  .btn-gold {
+    background: var(--gold);
+    color: #000;
+    font-weight: 700;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    transition: opacity 0.15s ease;
+  }
+  .btn-gold:hover {
+    opacity: 0.85;
+  }
+  .btn-gold:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
 
-.card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 0.75rem;
-}
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+  }
 
-.input {
-  background: #0a0a0a;
-  border: 1px solid var(--border);
-  border-radius: 0.5rem;
-  padding: 0.625rem 0.875rem;
-  color: var(--foreground);
-  width: 100%;
-}
-.input:focus {
-  outline: none;
-  border-color: var(--gold);
-}
+  .input {
+    background: #0a0a0a;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    color: var(--foreground);
+    width: 100%;
+  }
+  .input:focus {
+    outline: none;
+    border-color: var(--gold);
+  }
 
-.hero-bg {
-  background:
-    radial-gradient(ellipse 80% 60% at 30% 20%, rgba(255, 215, 0, 0.08), transparent 60%),
-    radial-gradient(ellipse 60% 50% at 80% 80%, rgba(255, 215, 0, 0.05), transparent 60%),
-    linear-gradient(180deg, #000000 0%, #0a0a0a 60%, #000000 100%);
-}
+  .hero-bg {
+    background:
+      radial-gradient(ellipse 80% 60% at 30% 20%, rgba(255, 215, 0, 0.08), transparent 60%),
+      radial-gradient(ellipse 60% 50% at 80% 80%, rgba(255, 215, 0, 0.05), transparent 60%),
+      linear-gradient(180deg, #000000 0%, #0a0a0a 60%, #000000 100%);
+  }
 
-.hero-bg::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.35;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  mix-blend-mode: overlay;
-  pointer-events: none;
-}
+  .hero-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.35;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    mix-blend-mode: overlay;
+    pointer-events: none;
+  }
 
-.scroll-row {
-  display: flex;
-  gap: 1rem;
-  overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  padding-bottom: 0.5rem;
-}
-.scroll-row::-webkit-scrollbar {
-  height: 6px;
-}
-.scroll-row::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
-}
-.scroll-row > * {
-  scroll-snap-align: start;
+  .scroll-row {
+    display: flex;
+    gap: 1rem;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: 0.5rem;
+  }
+  .scroll-row::-webkit-scrollbar {
+    height: 6px;
+  }
+  .scroll-row::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  .scroll-row > * {
+    scroll-snap-align: start;
+  }
 }

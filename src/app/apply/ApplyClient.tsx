@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import FormatCard from "./FormatCard";
 import { ARTIST_ERRORS, parseJsonResponse, toFriendlyMessage } from "@/lib/errors";
 import {
   ADD_ON_TYPES,
@@ -304,6 +305,30 @@ export default function ApplyClient() {
     }
   }
 
+  /**
+   * The draft lives in sessionStorage and the opening step comes from the URL,
+   * so neither is knowable while rendering on the server. Returning the shell
+   * until hydration keeps the server and client trees identical — restoring
+   * during render instead produced a hydration mismatch that React resolves by
+   * throwing away the subtree and re-rendering it.
+   */
+  if (!hydrated) {
+    return (
+      <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-16" aria-busy="true">
+        <div className="mb-10">
+          <div className="h-1 bg-border rounded-full overflow-hidden">
+            <div className="h-full bg-gold w-0" />
+          </div>
+        </div>
+        <div className="space-y-4" aria-hidden="true">
+          <div className="h-8 w-1/2 rounded bg-surface" />
+          <div className="h-40 rounded-xl bg-surface" />
+          <div className="h-40 rounded-xl bg-surface" />
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-16">
       <div className="mb-10">
@@ -381,18 +406,20 @@ export default function ApplyClient() {
         <section className="space-y-4">
           <h2 className="text-2xl font-bold mb-4">Pick Your Lane</h2>
           <p className="text-neutral-400 text-sm mb-4">
-            However you show up, we&apos;re filming it. Choose your format — we&apos;ll take care of the rest.
+            However you show up, we&apos;re filming it. Watch each one, then pick your lane — we&apos;ll
+            take care of the rest.
           </p>
           <div className="grid sm:grid-cols-2 gap-4">
             {FORMATS.map((f) => (
-              <button
+              <FormatCard
                 key={f.id}
-                onClick={() => selectFormat(f.id)}
-                className={`card p-5 text-left transition-colors ${format === f.id ? "border-gold" : "hover:border-neutral-600"}`}
-              >
-                <h3 className="font-bold text-gold">{f.name}</h3>
-                <p className="text-sm text-neutral-400 mt-1">{f.description}</p>
-              </button>
+                name={f.name}
+                description={f.description}
+                poster={f.poster}
+                video={f.video}
+                selected={format === f.id}
+                onSelect={() => selectFormat(f.id)}
+              />
             ))}
           </div>
           {format && (

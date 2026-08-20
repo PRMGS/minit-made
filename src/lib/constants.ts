@@ -1,23 +1,37 @@
+/**
+ * `poster` and `video` are looked up from /public/formats/. They are optional in
+ * practice: FormatCard falls back to a styled placeholder when a file is absent,
+ * so the picker never renders a broken frame. Drop a still and a short muted
+ * loop in at these paths and the previews light up with no code change.
+ */
 export const FORMATS = [
   {
     id: "hanging_mic",
     name: "Hanging Mic",
     description: "Studio performance with microphone and V-flat",
+    poster: "/formats/hanging-mic.jpg",
+    video: "/formats/hanging-mic.mp4",
   },
   {
     id: "running_gun",
     name: "Running Gun",
     description: "Street-style performance at an approved location",
+    poster: "/formats/running-gun.jpg",
+    video: "/formats/running-gun.mp4",
   },
   {
     id: "mic_d_up_cypher",
     name: "Mic'd Up Cypher",
     description: "Group freestyle/cypher performance",
+    poster: "/formats/micd-up-cypher.jpg",
+    video: "/formats/micd-up-cypher.mp4",
   },
   {
     id: "city_on_fire",
     name: "City on Fire",
     description: "Featured city spotlight performance",
+    poster: "/formats/city-on-fire.jpg",
+    video: "/formats/city-on-fire.mp4",
   },
 ] as const;
 
