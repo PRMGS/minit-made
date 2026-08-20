@@ -1,0 +1,56 @@
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+export default function CrewSignupPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function handleSignup(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    const supabase = createClient();
+
+    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+    if (signUpError || !data.user) {
+      setError(signUpError?.message ?? "Signup failed");
+      setLoading(false);
+      return;
+    }
+
+    const linkRes = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ auth_user_id: data.user.id, email, role: "crew" }),
+    });
+    const linkData = await linkRes.json();
+    if (linkData.error) {
+      setError(linkData.error);
+      setLoading(false);
+      return;
+    }
+
+    router.push("/crew/dashboard");
+  }
+
+  return (
+    <main className="flex-1 max-w-sm mx-auto w-full px-6 py-24">
+      <h1 className="text-2xl font-bold mb-2">Set Up Your Crew Account</h1>
+      <p className="text-sm text-neutral-400 mb-6">Use the email admin added you with.</p>
+      <form onSubmit={handleSignup} className="space-y-4">
+        <input type="email" required placeholder="Email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <input type="password" required minLength={8} placeholder="Password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
+        {error && <p className="text-red-400 text-sm">{error}</p>}
+        <button type="submit" disabled={loading} className="btn-gold w-full">
+          {loading ? "Creating account…" : "Set Up Account"}
+        </button>
+      </form>
+    </main>
+  );
+}

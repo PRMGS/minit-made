@@ -1,0 +1,16 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAdminApi } from "@/lib/auth";
+
+export async function PATCH(req: NextRequest) {
+  const ctx = await requireAdminApi();
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { key, value } = await req.json();
+
+  const { error } = await ctx.supabase
+    .from("site_settings")
+    .update({ value, updated_at: new Date().toISOString() } as never)
+    .eq("key", key);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
+}
