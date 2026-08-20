@@ -24,20 +24,49 @@ const baseSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().url(),
 });
 
-/** Extra rules that only make sense for a real deployment. */
-const productionSchema = baseSchema
+/**
+ * Which deployment this is.
+ *
+ * There are three tiers, not two. The original split — production or not — made
+ * a viewable staging deploy impossible: Vercel builds previews with
+ * NODE_ENV=production, so a preview tripped the sk_live_ rule and refused to
+ * boot. Staging keeps every "is it configured at all" check and drops only the
+ * two that assume real money.
+ *
+ * APP_ENV overrides everything, so a local production build can be exercised
+ * without pretending to be the live site.
+ */
+export type AppTier = "development" | "staging" | "production";
+
+export function currentTier(): AppTier {
+  const explicit = process.env.APP_ENV;
+  if (explicit === "production" || explicit === "staging" || explicit === "development") {
+    return explicit;
+  }
+  if (process.env.VERCEL_ENV === "production") return "production";
+  if (process.env.VERCEL_ENV) return "staging"; // preview and branch deploys
+  return process.env.NODE_ENV === "production" ? "production" : "development";
+}
+
+/** Rules for anything served over the internet, test keys included. */
+const deployedSchema = baseSchema
   .refine((e) => e.NEXT_PUBLIC_SITE_URL.startsWith("https://"), {
     path: ["NEXT_PUBLIC_SITE_URL"],
-    message: "must be https:// in production (Stripe redirects and email links derive from it)",
+    message: "must be https:// once deployed (Stripe redirects and email links derive from it)",
   })
   .refine((e) => !e.NEXT_PUBLIC_SITE_URL.includes("localhost"), {
     path: ["NEXT_PUBLIC_SITE_URL"],
-    message: "must not point at localhost in production — paying artists would be redirected to a dead link",
-  })
-  .refine((e) => e.STRIPE_SECRET_KEY.startsWith("sk_live_"), {
+    message: "must not point at localhost once deployed — links we email would be dead",
+  });
+
+/** Extra rules that only make sense where real cards are charged. */
+const productionSchema = deployedSchema.refine(
+  (e) => e.STRIPE_SECRET_KEY.startsWith("sk_live_"),
+  {
     path: ["STRIPE_SECRET_KEY"],
     message: "must be a live key (sk_live_) in production",
-  });
+  }
+);
 
 function rawEnv() {
   return {
@@ -57,11 +86,13 @@ export function formatEnvIssues(error: z.ZodError): string {
 }
 
 /**
- * Validates the whole environment. Used by instrumentation at boot.
- * Returns the parse result rather than throwing so the caller decides severity.
+ * Validates the whole environment against the rules for this tier. Used by
+ * instrumentation at boot. Returns the parse result rather than throwing so the
+ * caller decides severity.
  */
-export function validateEnv(isProduction = process.env.NODE_ENV === "production") {
-  const schema = isProduction ? productionSchema : baseSchema;
+export function validateEnv(tier: AppTier = currentTier()) {
+  const schema =
+    tier === "production" ? productionSchema : tier === "staging" ? deployedSchema : baseSchema;
   return schema.safeParse(rawEnv());
 }
 
