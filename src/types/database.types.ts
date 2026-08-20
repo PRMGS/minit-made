@@ -824,6 +824,7 @@ export type Database = {
         Row: {
           id: string
           booking_id: string | null
+          content_id: string | null
           recipient: string
           email_type: string
           status: string
@@ -836,6 +837,7 @@ export type Database = {
         Insert: {
           id?: string
           booking_id?: string | null
+          content_id?: string | null
           recipient: string
           email_type: string
           status: string
@@ -848,6 +850,7 @@ export type Database = {
         Update: {
           id?: string
           booking_id?: string | null
+          content_id?: string | null
           recipient?: string
           email_type?: string
           status?: string
@@ -924,6 +927,18 @@ export type Database = {
       claim_batch_slot: {
         Args: { p_batch_id: string | null }
         Returns: "claimed" | "full" | "missing"
+      }
+      reassign_booking_batch: {
+        Args: {
+          p_booking_id: string
+          p_batch_id: string | null
+          p_slot_time: string | null
+          p_status?: string | null
+        }
+        Returns: {
+          result: "ok" | "booking_not_found"
+          slot?: "claimed" | "not_needed"
+        }
       }
       confirm_booking_payment: {
         Args: {

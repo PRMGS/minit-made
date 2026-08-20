@@ -1,10 +1,6 @@
 import { blockClassName, blockInlineStyle, type Block } from "@/lib/blocks";
 import { FORMATS } from "@/lib/constants";
-
-function extractYoutubeId(url: string): string | null {
-  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([\w-]{11})/);
-  return match ? match[1] : null;
-}
+import { extractYoutubeId } from "@/lib/youtube";
 
 const FULL_BLEED_TYPES = new Set(["hero", "cta"]);
 

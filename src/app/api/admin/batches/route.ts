@@ -1,19 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth";
+import { parseJson } from "@/lib/apiRequest";
+import { adminBatchSchema } from "@/lib/apiSchemas";
 
 export async function POST(req: NextRequest) {
   const ctx = await requireAdminApi();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const { supabase } = ctx;
-  const body = await req.json();
 
-  const { data, error } = await supabase
+  const parsed = await parseJson(req, adminBatchSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+
+  const { data, error } = await ctx.supabase
     .from("shoot_batches")
     .insert({
       format: body.format,
       shoot_date: body.shoot_date,
       location: body.location,
-      max_artists: body.max_artists ?? 8,
+      max_artists: body.max_artists,
       week_number: body.week_number ?? null,
       month: body.month ?? null,
     })

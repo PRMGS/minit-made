@@ -1,22 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth";
+import { parseJson } from "@/lib/apiRequest";
+import { adminPagePatchSchema } from "@/lib/apiSchemas";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireAdminApi();
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const { id } = await params;
-  const body = await req.json();
 
-  const allowed = ["title", "meta_description", "content", "status"];
-  const update: Record<string, unknown> = {};
-  for (const key of allowed) if (key in body) update[key] = body[key];
+  const parsed = await parseJson(req, adminPagePatchSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
+
+  const update = { ...body } as Record<string, unknown>;
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ success: true, unchanged: true });
+  }
   if (update.status === "published") update.published_at = new Date().toISOString();
 
-  const { data: current } = await ctx.supabase.from("pages").select("*").eq("id", id).single();
+  const { data: current } = await ctx.supabase.from("pages").select("id").eq("id", id).maybeSingle();
+  if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
+
   const { error } = await ctx.supabase.from("pages").update(update as never).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  if (current && "content" in body && update.status === "published") {
+  // Snapshot the published content so a bad edit can be traced back.
+  if ("content" in body && update.status === "published") {
     const { data: lastVersion } = await ctx.supabase
       .from("page_versions")
       .select("version_number")
@@ -25,12 +34,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       .limit(1)
       .maybeSingle();
 
-    await ctx.supabase.from("page_versions").insert({
+    const { error: versionError } = await ctx.supabase.from("page_versions").insert({
       page_id: id,
       version_number: (lastVersion?.version_number ?? 0) + 1,
-      content: body.content,
+      content: body.content as never,
       published_by: ctx.admin.email,
     });
+    if (versionError) {
+      console.error("[admin:pages] version snapshot failed", { id, versionError });
+    }
   }
 
   return NextResponse.json({ success: true });

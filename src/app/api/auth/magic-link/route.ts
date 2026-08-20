@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createMagicLinkUrl } from "@/lib/artistAccount";
 import { sendMagicLinkEmail } from "@/lib/email";
+import { parseJson } from "@/lib/apiRequest";
+import { magicLinkSchema } from "@/lib/apiSchemas";
 
 export const runtime = "nodejs";
 
@@ -29,21 +31,18 @@ function rateLimited(key: string): boolean {
  * artist, so this cannot be used to enumerate who has booked.
  */
 export async function POST(req: NextRequest) {
-  const { email } = (await req.json().catch(() => ({}))) as { email?: string };
+  const parsed = await parseJson(
+    req,
+    magicLinkSchema,
+    "That email doesn't look right. Check it and try again."
+  );
+  if (!parsed.ok) return parsed.response;
+  const normalized = parsed.data.email;
 
   const generic = NextResponse.json({
     success: true,
     message: "If that email is on a booking, a sign-in link is on its way.",
   });
-
-  if (!email || !email.includes("@")) {
-    return NextResponse.json(
-      { error: "That email doesn't look right. Check it and try again." },
-      { status: 400 }
-    );
-  }
-
-  const normalized = email.trim().toLowerCase();
   if (rateLimited(normalized)) return generic;
 
   try {

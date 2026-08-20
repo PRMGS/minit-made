@@ -10,6 +10,7 @@ export const SUPPORT_EMAIL = "bookings@minitmade.com";
 export const ARTIST_ERRORS = {
   generic: `Something went sideways on our end. Give it another go — if it keeps happening, reach us at ${SUPPORT_EMAIL}.`,
   network: "We couldn't reach the server. Check your connection and try again.",
+  badRequest: "That didn't come through properly — check your connection and send it again.",
 
   // Uploads
   uploadFailed: "That file didn't make it up. Give it another try.",

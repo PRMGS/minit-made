@@ -1,7 +1,15 @@
 import "server-only";
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { addOnLabel, formatLabel, formatMoney, formatShootDate, submissionStatusLabel } from "@/lib/constants";
+import {
+  addOnLabel,
+  contentTypeLabel,
+  formatLabel,
+  formatMoney,
+  formatShootDate,
+  formatSlotTime,
+  submissionStatusLabel,
+} from "@/lib/constants";
 import { requireEnv, siteUrl } from "@/lib/env";
 
 // Lazy: `next build` must not require secrets, but a missing key must still throw
@@ -29,7 +37,13 @@ function shell(body: string) {
   </div>`;
 }
 
-/** Escapes user-supplied values before they go into email HTML. */
+/**
+ * Escapes user-supplied values before they go into email HTML.
+ *
+ * Every interpolation in this file goes through this or a label helper. Two
+ * templates previously interpolated an artist name — and a URL straight into an
+ * href — unescaped.
+ */
 function esc(value: string | null | undefined): string {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -39,8 +53,14 @@ function esc(value: string | null | undefined): string {
     .replace(/'/g, "&#39;");
 }
 
+/** Only ever emit links we built ourselves; anything else becomes inert. */
+function safeUrl(raw: string | null | undefined): string {
+  const value = String(raw ?? "").trim();
+  return /^https?:\/\//i.test(value) ? esc(value) : "#";
+}
+
 function button(href: string, label: string) {
-  return `<a href="${href}" style="display:inline-block;background:#ffd700;color:#000000;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">${label}</a>`;
+  return `<a href="${safeUrl(href)}" style="display:inline-block;background:#ffd700;color:#000000;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;font-size:14px;">${esc(label)}</a>`;
 }
 
 const H1 = "font-size:26px;font-weight:800;color:#ffd700;margin:0 0 16px;letter-spacing:-0.5px;";
@@ -48,18 +68,75 @@ const P = "font-size:15px;line-height:1.6;color:#d4d4d4;margin:0 0 16px;";
 const LABEL = "color:#737373;";
 const FINE = "font-size:12px;line-height:1.6;color:#737373;margin:24px 0 0;padding-top:16px;border-top:1px solid #262626;";
 
-export async function sendApplicationReceivedEmail(email: string, artistName: string) {
-  await resendClient().emails.send({
-    from: from(),
-    to: email,
-    subject: "We got your application — Minit Made",
-    html: shell(`
-      <h1 style="${H1}">We Got It.</h1>
-      <p style="${P}">Hey ${artistName},</p>
-      <p style="${P}">Your application is in front of us. Finish checkout to lock your spot &mdash; we'll take it from there.</p>
-      ${button(`${siteUrl()}/apply`, "Finish Your Application")}
-    `),
-  });
+export type SendOutcome = { status: "sent" | "failed" | "skipped"; detail?: string };
+
+/**
+ * Sends once and records the outcome.
+ *
+ * Every send writes an `email_deliveries` row so a bounce leaves a trace, and a
+ * prior `sent` row short-circuits so a webhook redelivery cannot double-send.
+ * Partial unique indexes on (booking_id, email_type) and (content_id, email_type)
+ * back this up in the database, which the read-then-write check alone could not
+ * do under two concurrent redeliveries.
+ */
+async function recordedSend(params: {
+  emailType: string;
+  recipient: string;
+  subject: string;
+  html: string;
+  bookingId?: string | null;
+  contentId?: string | null;
+}): Promise<SendOutcome> {
+  const { emailType, recipient, subject, html, bookingId = null, contentId = null } = params;
+  const supabase = createAdminClient();
+
+  const key = bookingId ? "booking_id" : "content_id";
+  const keyValue = bookingId ?? contentId;
+  if (!keyValue) return { status: "failed", detail: "no booking or content reference" };
+
+  const { data: existing } = await supabase
+    .from("email_deliveries")
+    .select("id")
+    .eq(key, keyValue)
+    .eq("email_type", emailType)
+    .eq("status", "sent")
+    .maybeSingle();
+  if (existing) return { status: "skipped", detail: "already sent" };
+
+  const { data, error } = await resendClient().emails.send(
+    { from: from(), to: recipient, subject, html },
+    { idempotencyKey: `${emailType}-${keyValue}` }
+  );
+
+  if (error) {
+    console.error("[email] send failed", { emailType, keyValue, error });
+    await supabase.from("email_deliveries").insert({
+      booking_id: bookingId,
+      content_id: contentId,
+      recipient,
+      email_type: emailType,
+      status: "failed",
+      error: String(error.message ?? error),
+    } as never);
+    return { status: "failed", detail: String(error.message ?? error) };
+  }
+
+  const { error: logError } = await supabase.from("email_deliveries").insert({
+    booking_id: bookingId,
+    content_id: contentId,
+    recipient,
+    email_type: emailType,
+    status: "sent",
+    provider_id: data?.id ?? null,
+  } as never);
+
+  // A unique-index collision means a concurrent send won the race; the artist
+  // still got exactly one email, which is the point.
+  if (logError && logError.code !== "23505") {
+    console.error("[email] delivery log failed after a successful send", { emailType, keyValue, logError });
+  }
+
+  return { status: "sent", detail: data?.id };
 }
 
 export type BookingConfirmationData = {
@@ -85,26 +162,26 @@ export function buildBookingConfirmationHtml(data: BookingConfirmationData) {
     <h1 style="${H1}">You're In.</h1>
     <p style="${P}">Hey ${esc(artistName)} &mdash; your spot is locked. Here's everything you need.</p>
 
-    ${row("Format", formatLabel(format))}
-    ${row("Date", formatShootDate(shootDate, "We&rsquo;ll be in touch"))}
+    ${row("Format", esc(formatLabel(format)))}
+    ${row("Date", esc(formatShootDate(shootDate, "We'll be in touch")))}
     ${row("Location", esc(location) || "We&rsquo;ll be in touch")}
     ${row("Call time", "We'll send your exact time before the shoot")}
-    ${row("Your track", submissionStatusLabel(submissionStatus))}
+    ${row("Your track", esc(submissionStatusLabel(submissionStatus)))}
 
     ${
       addOns.length
         ? `<p style="${P}"><span style="${LABEL}">You added:</span></p>
            <ul style="margin:0 0 16px;padding-left:20px;color:#d4d4d4;font-size:15px;line-height:1.8;">
-             ${addOns.map((a) => `<li>${addOnLabel(a.type)} &mdash; ${formatMoney(a.price)}</li>`).join("")}
+             ${addOns.map((a) => `<li>${esc(addOnLabel(a.type))} &mdash; ${esc(formatMoney(a.price))}</li>`).join("")}
            </ul>`
         : ""
     }
-    ${row("Total paid", formatMoney(totalPrice))}
+    ${row("Total paid", esc(formatMoney(totalPrice)))}
 
     <p style="${P}">Come ready to perform. Everything else is on us.</p>
     ${button(dashboardUrl, "Go to Your Dashboard")}
     <p style="font-size:12px;color:#737373;margin:12px 0 0;">
-      Link expired? <a href="${siteUrl()}/artist/access" style="color:#ffd700;">Get a new one</a>.
+      Link expired? <a href="${safeUrl(`${siteUrl()}/artist/access`)}" style="color:#ffd700;">Get a new one</a>.
     </p>
 
     <p style="${FINE}">
@@ -115,31 +192,11 @@ export function buildBookingConfirmationHtml(data: BookingConfirmationData) {
   `);
 }
 
-export type SendOutcome = { status: "sent" | "failed" | "skipped"; detail?: string };
-
-/**
- * Sends the confirmation and records the outcome.
- *
- * Resend failures were previously indistinguishable from success (the result was
- * awaited and discarded), so a bounced confirmation left no trace. Every send now
- * writes an `email_deliveries` row, and a prior `sent` row short-circuits so a
- * webhook redelivery can never double-send.
- */
 export async function sendBookingConfirmationEmail(
   bookingId: string,
   dashboardUrl?: string
 ): Promise<SendOutcome> {
   const supabase = createAdminClient();
-  const emailType = "booking_confirmation";
-
-  const { data: existing } = await supabase
-    .from("email_deliveries")
-    .select("id")
-    .eq("booking_id", bookingId)
-    .eq("email_type", emailType)
-    .eq("status", "sent")
-    .maybeSingle();
-  if (existing) return { status: "skipped", detail: "already sent" };
 
   const { data: booking } = await supabase
     .from("bookings")
@@ -152,50 +209,118 @@ export async function sendBookingConfirmationEmail(
     return { status: "failed", detail: "booking or artist not found" };
   }
 
-  const recipient = booking.artists.email;
-
-  const html = buildBookingConfirmationHtml({
-    artistName: booking.artists.artist_name,
-    format: booking.format,
-    shootDate: booking.shoot_batches?.shoot_date ?? null,
-    location: booking.shoot_batches?.location ?? null,
-    submissionStatus: booking.music_submissions?.[0]?.submission_status ?? "submitted",
-    addOns: (booking.add_on_orders ?? []).map((a) => ({ type: a.add_on_type, price: a.price_at_purchase })),
-    totalPrice: booking.total_price,
-    dashboardUrl: dashboardUrl ?? `${siteUrl()}/artist/access`,
+  return recordedSend({
+    emailType: "booking_confirmation",
+    recipient: booking.artists.email,
+    subject: "You're in — Minit Made",
+    bookingId,
+    html: buildBookingConfirmationHtml({
+      artistName: booking.artists.artist_name,
+      format: booking.format,
+      shootDate: booking.shoot_batches?.shoot_date ?? null,
+      location: booking.shoot_batches?.location ?? null,
+      submissionStatus: booking.music_submissions?.[0]?.submission_status ?? "submitted",
+      addOns: (booking.add_on_orders ?? []).map((a) => ({ type: a.add_on_type, price: a.price_at_purchase })),
+      totalPrice: booking.total_price,
+      dashboardUrl: dashboardUrl ?? `${siteUrl()}/artist/access`,
+    }),
   });
+}
 
-  const { data, error } = await resendClient().emails.send(
-    {
-      from: from(),
-      to: recipient,
-      subject: "You're in — Minit Made",
-      html,
-    },
-    { idempotencyKey: `booking-confirmation-${bookingId}` }
-  );
+/**
+ * "Your shoot is locked in."
+ *
+ * The booking page promises "we'll send your exact time before the shoot" and
+ * nothing ever did — assigning a batch and call time notified no one. Keyed on a
+ * distinct email_type so it can be sent once per booking alongside the
+ * confirmation.
+ */
+export async function sendShootScheduledEmail(bookingId: string): Promise<SendOutcome> {
+  const supabase = createAdminClient();
 
-  if (error) {
-    console.error("[email] confirmation send failed", { bookingId, error });
-    await supabase.from("email_deliveries").insert({
-      booking_id: bookingId,
-      recipient,
-      email_type: emailType,
-      status: "failed",
-      error: String(error.message ?? error),
-    } as never);
-    return { status: "failed", detail: String(error.message ?? error) };
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, format, assigned_slot_time, artists(artist_name, email), shoot_batches(shoot_date, location)")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  if (!booking?.artists?.email) {
+    return { status: "failed", detail: "booking or artist email not found" };
+  }
+  if (!booking.shoot_batches) {
+    return { status: "skipped", detail: "no shoot assigned yet" };
   }
 
-  await supabase.from("email_deliveries").insert({
-    booking_id: bookingId,
-    recipient,
-    email_type: emailType,
-    status: "sent",
-    provider_id: data?.id ?? null,
-  } as never);
+  const row = (label: string, value: string) =>
+    `<p style="${P}"><span style="${LABEL}">${label}:</span> ${value}</p>`;
 
-  return { status: "sent", detail: data?.id };
+  return recordedSend({
+    emailType: "shoot_scheduled",
+    recipient: booking.artists.email,
+    subject: "Your shoot date — Minit Made",
+    bookingId,
+    html: shell(`
+      <h1 style="${H1}">You're Locked In.</h1>
+      <p style="${P}">Hey ${esc(booking.artists.artist_name)} &mdash; here's where and when.</p>
+      ${row("Format", esc(formatLabel(booking.format)))}
+      ${row("Date", esc(formatShootDate(booking.shoot_batches.shoot_date)))}
+      ${row("Location", esc(booking.shoot_batches.location))}
+      ${row("Call time", esc(formatSlotTime(booking.assigned_slot_time, "We'll confirm this shortly")))}
+      <p style="${P}">Arrive 30 minutes before your call time. Bring any wardrobe changes and be ready
+      to perform your submitted track live.</p>
+      ${button(`${siteUrl()}/artist/bookings/${booking.id}`, "View My Booking")}
+      <p style="${FINE}">
+        Cancellations 7 or more days before your shoot can be rebooked; cancellations
+        within 7 days forfeit the booking.
+      </p>
+    `),
+  });
+}
+
+/**
+ * "Your moment is live."
+ *
+ * This is the payoff the whole product exists to deliver, and it previously
+ * happened in silence — an admin flipped the status and the artist found out
+ * only if they happened to open their dashboard.
+ */
+export async function sendContentLiveEmail(contentId: string): Promise<SendOutcome> {
+  const supabase = createAdminClient();
+
+  const { data: content } = await supabase
+    .from("content_items")
+    .select("id, title, content_type, youtube_url, status, artists(artist_name, email)")
+    .eq("id", contentId)
+    .maybeSingle();
+
+  if (!content?.artists?.email) {
+    return { status: "failed", detail: "content or artist email not found" };
+  }
+  if (content.status !== "live") {
+    return { status: "skipped", detail: `status is ${content.status}` };
+  }
+
+  const watchUrl = content.youtube_url || `${siteUrl()}/artist/content`;
+
+  return recordedSend({
+    emailType: "content_live",
+    recipient: content.artists.email,
+    subject: "Your moment is live — Minit Made",
+    contentId,
+    html: shell(`
+      <h1 style="${H1}">It's Live.</h1>
+      <p style="${P}">Hey ${esc(content.artists.artist_name)},</p>
+      <p style="${P}">
+        <strong>${esc(content.title)}</strong> &mdash; ${esc(contentTypeLabel(content.content_type))} &mdash;
+        is up. Go watch it, then go share it.
+      </p>
+      ${button(watchUrl, "Watch It")}
+      <p style="font-size:12px;color:#737373;margin:12px 0 0;">
+        Everything of yours lives at
+        <a href="${safeUrl(`${siteUrl()}/artist/content`)}" style="color:#ffd700;">your dashboard</a>.
+      </p>
+    `),
+  });
 }
 
 /**
@@ -228,20 +353,6 @@ export async function sendMagicLinkEmail(email: string, artistName: string, url:
       <p style="${P}">Tap below to get straight into your dashboard. This link works once and expires within the hour.</p>
       ${button(url, "Open My Dashboard")}
       <p style="${FINE}">If you didn't ask for this, you can ignore it &mdash; nothing changes until the link is used.</p>
-    `),
-  });
-}
-
-export async function sendContentReadyEmail(email: string, artistName: string, youtubeUrl: string) {
-  await resendClient().emails.send({
-    from: from(),
-    to: email,
-    subject: "Your moment is live — Minit Made",
-    html: shell(`
-      <h1 style="${H1}">It's Live.</h1>
-      <p style="${P}">Hey ${artistName},</p>
-      <p style="${P}">Your performance is up. Go watch it, then go share it.</p>
-      ${button(youtubeUrl, "Watch It")}
     `),
   });
 }

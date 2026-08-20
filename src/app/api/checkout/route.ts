@@ -2,62 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { calculatePricing } from "@/lib/pricing";
 import { stripe } from "@/lib/stripe";
-import { ADD_ON_TYPES, TERMS_VERSION, addOnLabel, formatLabel, type AddOnType, type FormatId } from "@/lib/constants";
+import { TERMS_VERSION, addOnLabel, formatLabel } from "@/lib/constants";
 import { ARTIST_ERRORS, safeApiError } from "@/lib/errors";
+import { parseJson } from "@/lib/apiRequest";
+import { checkoutSchema } from "@/lib/apiSchemas";
 import { siteUrl } from "@/lib/env";
 
-type ApplicationPayload = {
-  artist: {
-    name: string;
-    artist_name: string;
-    email: string;
-    phone: string;
-    city: string;
-    instagram: string;
-    tiktok: string;
-    youtube?: string;
-    spotify?: string;
-    soundcloud?: string;
-    apple_music?: string;
-    bio?: string;
-  };
-  format: FormatId;
-  music: {
-    song_title: string;
-    artist_name: string;
-    spotify_url?: string;
-    apple_music_url?: string;
-    youtube_url?: string;
-    soundcloud_url?: string;
-    audio_file_url?: string;
-    instrumental_file_url?: string;
-    lyrics?: string;
-    performance_notes?: string;
-    explicit_content: boolean;
-  };
-  prep: {
-    performance_vibe?: string;
-    special_requests?: string;
-    height?: string;
-    broll_preference?: string;
-    production_notes?: string;
-  };
-  addOns: AddOnType[];
-  interview?: Record<string, string>;
-  termsAccepted: boolean;
-};
-
 export async function POST(req: NextRequest) {
-  const body = (await req.json()) as ApplicationPayload;
+  const parsed = await parseJson(req, checkoutSchema);
+  if (!parsed.ok) return parsed.response;
+  const body = parsed.data;
 
+  // Kept separate from schema validation so the artist gets copy about the terms
+  // rather than a generic "some details are missing".
   if (!body.termsAccepted) {
     return NextResponse.json({ error: ARTIST_ERRORS.termsRequired }, { status: 400 });
   }
-  if (!body.artist?.email || !body.format) {
-    return NextResponse.json({ error: ARTIST_ERRORS.missingFields }, { status: 400 });
-  }
 
-  const validAddOns = body.addOns.filter((a) => ADD_ON_TYPES.some((d) => d.id === a));
+  // Already narrowed to the known ids by the schema.
+  const validAddOns = body.addOns;
   const supabase = createAdminClient();
 
   let pricing;
@@ -136,12 +99,18 @@ export async function POST(req: NextRequest) {
   // Reuse an abandoned attempt instead of stacking duplicate bookings.
   // The cancel URL already carries booking_id but nothing consumed it, so every
   // back-out-and-retry previously inserted a fresh booking plus child rows.
+  // Ordered and limited rather than maybeSingle(): with two pending attempts for
+  // the same artist and format, maybeSingle() errors instead of returning a row,
+  // and the error path then created a third — each duplicate making the next
+  // attempt worse. Newest wins.
   const { data: reusable } = await supabase
     .from("bookings")
     .select("id, stripe_checkout_session_id")
     .eq("artist_id", artistId)
     .eq("format", body.format)
     .eq("payment_status", "pending")
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   const bookingFields = {
