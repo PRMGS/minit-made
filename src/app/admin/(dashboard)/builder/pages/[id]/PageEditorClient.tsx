@@ -154,7 +154,7 @@ export default function PageEditorClient({ page }: { page: Page }) {
               <button onClick={() => save()} disabled={saving} className="border border-border rounded-lg px-4 py-1.5 text-sm hover:border-gold">
                 {saving ? "Saving…" : saved ? "Saved ✓" : "💾 Save"}
               </button>
-              <a href={`/${page.slug}`} target="_blank" className="border border-border rounded-lg px-4 py-1.5 text-sm hover:border-gold">
+              <a href={`/${page.slug}`} target="_blank" rel="noopener noreferrer" className="border border-border rounded-lg px-4 py-1.5 text-sm hover:border-gold">
                 👁 Preview
               </a>
               <button onClick={() => save("published")} disabled={saving} className="btn-gold text-sm">

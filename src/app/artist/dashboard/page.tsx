@@ -56,7 +56,7 @@ export default async function ArtistDashboardPage() {
                 <p className="font-semibold text-sm">{c.title}</p>
                 <p className="text-xs text-neutral-500 mt-1">{contentTypeLabel(c.content_type)}</p>
                 {c.youtube_url && (
-                  <a href={c.youtube_url} target="_blank" className="text-xs text-gold mt-2 block">
+                  <a href={c.youtube_url} target="_blank" rel="noopener noreferrer" className="text-xs text-gold mt-2 block">
                     Watch on YouTube →
                   </a>
                 )}

@@ -1,16 +1,28 @@
 import { requireAdmin } from "@/lib/auth";
-import { formatMoney } from "@/lib/constants";
+import { formatLabel, formatMoney, formatShootDate } from "@/lib/constants";
 import Link from "next/link";
 
 export default async function AdminDashboardPage() {
   const { supabase } = await requireAdmin();
 
-  const [batches, artists, bookings, submissions] = await Promise.all([
+  const [batches, artists, bookings, submissions, unscheduled] = await Promise.all([
     supabase.from("shoot_batches").select("*").gte("shoot_date", new Date().toISOString().slice(0, 10)).order("shoot_date").limit(10),
     supabase.from("artists").select("id", { count: "exact", head: true }),
     supabase.from("bookings").select("total_price, status, payment_status"),
     supabase.from("music_submissions").select("submission_status"),
+    // Paid, but with no shoot assigned. This flag was written by the payment RPC
+    // and read nowhere, so the one signal saying "a paying artist is waiting on
+    // you" existed only as an ops email and a column nobody looked at.
+    supabase
+      .from("bookings")
+      .select("id, format, created_at, total_price, artists(artist_name, email)")
+      .eq("payment_status", "completed")
+      .eq("needs_scheduling", true)
+      .order("created_at", { ascending: true })
+      .limit(25),
   ]);
+
+  const needsScheduling = unscheduled.data ?? [];
 
   const totalRevenue = (bookings.data ?? [])
     .filter((b) => b.payment_status === "completed")
@@ -30,6 +42,35 @@ export default async function AdminDashboardPage() {
         <StatCard label="Bookings" value={String(bookings.data?.length ?? 0)} />
         <StatCard label="Pending Submissions" value={String(pendingSubs)} />
       </div>
+
+      {needsScheduling.length > 0 && (
+        <section>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-bold text-gold">
+              Needs Scheduling ({needsScheduling.length})
+            </h2>
+            <span className="text-xs text-neutral-500">Paid, no shoot assigned</span>
+          </div>
+          <div className="card divide-y divide-border border-gold">
+            {needsScheduling.map((b) => (
+              <Link
+                key={b.id}
+                href={`/admin/bookings/${b.id}`}
+                className="p-4 flex flex-wrap gap-2 justify-between items-center text-sm hover:bg-white/5"
+              >
+                <div>
+                  <p className="font-semibold">{b.artists?.artist_name ?? "Unknown artist"}</p>
+                  <p className="text-neutral-500">
+                    {formatLabel(b.format)} · paid {formatShootDate(b.created_at.slice(0, 10), "recently")}
+                  </p>
+                </div>
+                <span className="text-gold font-semibold tabular-nums">{formatMoney(b.total_price)}</span>
+                <span className="text-xs text-gold">Assign a shoot →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <section>
         <div className="flex justify-between items-center mb-4">

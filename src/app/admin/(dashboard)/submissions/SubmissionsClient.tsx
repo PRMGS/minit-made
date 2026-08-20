@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { ActionError, useAdminAction } from "@/lib/useAdminAction";
 import type { Database } from "@/types/database.types";
 
 type Submission = Database["public"]["Tables"]["music_submissions"]["Row"] & {
@@ -10,19 +10,14 @@ type Submission = Database["public"]["Tables"]["music_submissions"]["Row"] & {
 const STATUSES = ["pending", "submitted", "reviewed", "approved", "needs_revision"];
 
 export default function SubmissionsClient({ submissions }: { submissions: Submission[] }) {
-  const router = useRouter();
+  const { run, json, error } = useAdminAction();
 
-  async function updateStatus(id: string, submission_status: string) {
-    await fetch(`/api/admin/submissions/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ submission_status }),
-    });
-    router.refresh();
-  }
+  const updateStatus = (id: string, submission_status: string) =>
+    run(`/api/admin/submissions/${id}`, json({ submission_status }));
 
   return (
     <div className="space-y-3">
+      <ActionError message={error} />
       {submissions.map((s) => (
         <div key={s.id} className="card p-4 text-sm space-y-2">
           <div className="flex justify-between items-start">

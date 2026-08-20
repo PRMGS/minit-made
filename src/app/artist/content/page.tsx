@@ -26,7 +26,7 @@ export default async function ArtistContentPage() {
                 {contentTypeLabel(c.content_type)} {c.featured && <span className="text-gold">· Featured</span>}
               </p>
               {c.youtube_url && (
-                <a href={c.youtube_url} target="_blank" className="btn-gold text-xs inline-block mt-3">
+                <a href={c.youtube_url} target="_blank" rel="noopener noreferrer" className="btn-gold text-xs inline-block mt-3">
                   Watch on YouTube
                 </a>
               )}

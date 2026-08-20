@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyAuthError } from "@/lib/errors";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -18,7 +19,7 @@ export default function AdminLoginPage() {
     const supabase = createClient();
     const { data, error: loginError } = await supabase.auth.signInWithPassword({ email, password });
     if (loginError || !data.user) {
-      setError(loginError?.message ?? "Login failed");
+      setError(friendlyAuthError(loginError?.message));
       setLoading(false);
       return;
     }

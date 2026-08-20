@@ -12,13 +12,14 @@ export default async function SiteFooter() {
     <footer className="border-t border-border">
       <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-neutral-500">
         <span>© {new Date().getFullYear()} Minit Made. All rights reserved.</span>
-        <div className="flex gap-6">
+        {/* py-2 rather than bare text: these were ~20px tall, well under a usable tap target. */}
+        <div className="flex flex-wrap justify-center gap-x-6">
           {footer.map((item) => (
-            <Link key={item.href} href={item.href} className="hover:text-gold">
+            <Link key={item.href} href={item.href} className="py-2 hover:text-gold">
               {item.label}
             </Link>
           ))}
-          <Link href="/artist/login" className="hover:text-gold">Artist Login</Link>
+          <Link href="/artist/login" className="py-2 hover:text-gold">Artist Login</Link>
         </div>
       </div>
     </footer>

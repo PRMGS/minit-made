@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { friendlyAuthError } from "@/lib/errors";
 
 export default function CrewSignupPage() {
   const router = useRouter();
@@ -19,7 +20,7 @@ export default function CrewSignupPage() {
 
     const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
     if (signUpError || !data.user) {
-      setError(signUpError?.message ?? "Signup failed");
+      setError(friendlyAuthError(signUpError?.message));
       setLoading(false);
       return;
     }

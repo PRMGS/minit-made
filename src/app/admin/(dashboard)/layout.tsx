@@ -1,5 +1,10 @@
 import Link from "next/link";
 
+import type { Metadata } from "next";
+
+/** Personal data behind a login — never index it. */
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 const NAV = [
   { href: "/admin/dashboard", label: "Dashboard" },
   { href: "/admin/batches", label: "Batches" },

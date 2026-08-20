@@ -25,6 +25,9 @@ export default async function ArtistBookingsPage() {
             <div className="text-right shrink-0">
               <p className="text-sm uppercase text-neutral-500 whitespace-nowrap">{bookingStatusLabel(b.status)}</p>
               <p className="text-gold font-semibold">{formatMoney(b.total_price)}</p>
+              {b.payment_status === "pending" && (
+                <p className="text-xs text-gold mt-1 whitespace-nowrap">Finish payment →</p>
+              )}
             </div>
           </Link>
         ))}

@@ -2,6 +2,7 @@ import { getCurrentArtist } from "@/lib/auth";
 import { addOnLabel, bookingStatusLabel, formatLabel, formatMoney, formatShootDate, formatSlotTime, productionStatusLabel, submissionStatusLabel } from "@/lib/constants";
 import { notFound } from "next/navigation";
 import { SUPPORT_EMAIL } from "@/lib/errors";
+import ResumePayment from "./ResumePayment";
 
 export default async function ArtistBookingDetailPage({
   params,
@@ -26,6 +27,10 @@ export default async function ArtistBookingDetailPage({
         <h1 className="text-2xl font-bold">{formatLabel(booking.format)}</h1>
         <p className="text-sm uppercase tracking-wide text-neutral-500 mt-1">{bookingStatusLabel(booking.status)}</p>
       </div>
+
+      {booking.payment_status === "pending" && (
+        <ResumePayment bookingId={booking.id} total={booking.total_price} />
+      )}
 
       <section className="card p-5 space-y-2 text-sm">
         <h2 className="font-bold text-gold mb-2">Shoot Details</h2>
@@ -63,7 +68,7 @@ export default async function ArtistBookingDetailPage({
 
       <div className="flex justify-between items-center">
         <p className="text-gold font-bold text-lg">{formatMoney(booking.total_price)}</p>
-        <a href={`mailto:${SUPPORT_EMAIL}?subject=Booking ${booking.id}`} className="border border-border rounded-lg px-4 py-2 text-sm hover:border-gold">
+        <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Booking ${booking.id}`)}`} className="border border-border rounded-lg px-4 py-2 text-sm hover:border-gold">
           Contact Minit Made
         </a>
       </div>

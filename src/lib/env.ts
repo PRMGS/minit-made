@@ -114,3 +114,15 @@ export function requireEnv(name: keyof z.infer<typeof baseSchema>): string {
 export function siteUrl(): string {
   return requireEnv("NEXT_PUBLIC_SITE_URL").replace(/\/$/, "");
 }
+
+/**
+ * Same origin, but never throws.
+ *
+ * Root metadata is evaluated during `next build`, including for static pages, so
+ * a hard failure here would break the build rather than surface a config error
+ * at boot — which is instrumentation's job.
+ */
+export function siteUrlSafe(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "");
+  return raw && /^https?:\/\//.test(raw) ? raw : "http://localhost:3000";
+}

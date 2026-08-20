@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import FormatCard from "./FormatCard";
 import { ARTIST_ERRORS, parseJsonResponse, toFriendlyMessage } from "@/lib/errors";
 import {
@@ -230,26 +239,38 @@ export default function ApplyClient() {
     return () => ac.abort();
   }, [format, addOns]);
 
-  const canNext = useMemo(() => {
+  /**
+   * What's still missing on this step, by the label the artist actually sees.
+   * A disabled Continue with no explanation is a dead end — the error copy said
+   * "fill in anything marked with *" and nothing marked which.
+   */
+  const missing = useMemo(() => {
+    const need = (value: string, label: string) => (value.trim() ? null : label);
     switch (step) {
       case 0:
-        return (
-          artist.name && artist.artist_name && artist.email && artist.phone && artist.city && artist.instagram && artist.tiktok
-        );
+        return [
+          need(artist.name, "Legal Name"),
+          need(artist.artist_name, "Artist Name"),
+          need(artist.email, "Email"),
+          need(artist.phone, "Phone"),
+          need(artist.city, "City"),
+          need(artist.instagram, "Instagram"),
+          need(artist.tiktok, "TikTok"),
+        ].filter(Boolean) as string[];
       case 1:
-        return !!format;
+        return format ? [] : ["a format"];
       case 2:
-        return music.song_title && music.artist_name;
-      case 3:
-        return true;
-      case 4:
-        return true;
+        return [need(music.song_title, "Song Title"), need(music.artist_name, "Track Artist")].filter(
+          Boolean
+        ) as string[];
       case 5:
-        return termsAccepted;
+        return termsAccepted ? [] : ["the terms"];
       default:
-        return true;
+        return [];
     }
   }, [step, artist, format, music, termsAccepted]);
+
+  const canNext = missing.length === 0;
 
   async function uploadFile(file: File, bucket: string, field: "audio_file_url" | "instrumental_file_url") {
     setUploading(field);
@@ -329,8 +350,17 @@ export default function ApplyClient() {
     );
   }
 
+  /** Enter submits the step: advance, or pay on the last one. */
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!canNext) return;
+    if (step < STEPS.length - 1) setStep((sIdx) => sIdx + 1);
+    else void submitAndPay();
+  }
+
   return (
     <main className="flex-1 max-w-3xl mx-auto w-full px-6 py-16">
+      <form onSubmit={handleSubmit} noValidate>
       <div className="mb-10">
         {/* Mobile: a single readable step marker. Desktop: the full trail. */}
         <div className="flex sm:hidden items-baseline justify-between text-xs mb-2">
@@ -615,7 +645,7 @@ export default function ApplyClient() {
           </div>
           {pricingError && <p className="text-sm text-red-400">{pricingError}</p>}
           <button
-            onClick={submitAndPay}
+            type="submit"
             disabled={submitting || !pricing || pricingLoading}
             className="btn-gold w-full text-lg"
           >
@@ -628,29 +658,52 @@ export default function ApplyClient() {
         </section>
       )}
 
-      <div className="flex justify-between mt-10">
+      {missing.length > 0 && (
+        <p className="mt-8 text-sm text-neutral-500" role="status">
+          Still needed: <span className="text-neutral-300">{missing.join(", ")}</span>
+        </p>
+      )}
+
+      <div className="flex justify-between mt-4">
         <button
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          type="button"
+          onClick={() => setStep((sIdx) => Math.max(0, sIdx - 1))}
           disabled={step === 0}
           className="border border-border rounded-lg px-5 py-2 text-sm disabled:opacity-30"
         >
           Back
         </button>
         {step < STEPS.length - 1 && (
-          <button onClick={() => setStep((s) => s + 1)} disabled={!canNext} className="btn-gold">
+          <button type="submit" disabled={!canNext} className="btn-gold">
             Continue
           </button>
         )}
       </div>
+      </form>
     </main>
   );
 }
 
+/**
+ * Associates the label with the control it names.
+ *
+ * The label used to be a plain sibling, so every field in this seven-step form
+ * was announced as unlabelled and tapping a label did not focus its input — a
+ * real cost on mobile, which is where this audience is. cloneElement keeps all
+ * 28 call sites unchanged.
+ */
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const id = useId();
+  // Some fields carry status text after the control (upload progress), so only
+  // the first element is the thing the label names.
+  const [control, ...rest] = Children.toArray(children);
   return (
     <div>
-      <label className="block text-sm text-neutral-400 mb-1">{label}</label>
-      {children}
+      <label htmlFor={id} className="block text-sm text-neutral-400 mb-1">
+        {label}
+      </label>
+      {isValidElement<{ id?: string }>(control) ? cloneElement(control, { id }) : control}
+      {rest}
     </div>
   );
 }
