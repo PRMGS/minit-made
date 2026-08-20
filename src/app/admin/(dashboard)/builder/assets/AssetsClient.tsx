@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 type Asset = { name: string; url: string };
 
@@ -38,7 +39,14 @@ export default function AssetsClient({ assets }: { assets: Asset[] }) {
       <div className="grid sm:grid-cols-3 lg:grid-cols-4 gap-4">
         {assets.map((a) => (
           <div key={a.name} className="card p-2">
-            <img src={a.url} alt={a.name} className="rounded aspect-square object-cover w-full mb-2" />
+            <Image
+              src={a.url}
+              alt={a.name}
+              width={300}
+              height={300}
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className="rounded aspect-square object-cover w-full mb-2"
+            />
             <button onClick={() => copy(a.url)} className="text-xs text-gold w-full text-left truncate hover:underline">
               {copied === a.url ? "Copied!" : "Copy URL"}
             </button>

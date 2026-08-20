@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Database } from "@/types/database.types";
+import Image from "next/image";
 
 type Artist = Database["public"]["Tables"]["artists"]["Row"];
 
@@ -56,7 +57,13 @@ export default function ProfileForm({ artist }: { artist: Artist }) {
       </div>
 
       {form.profile_image_url && (
-        <img src={form.profile_image_url} alt="Profile" className="w-24 h-24 rounded-full object-cover" />
+        <Image
+          src={form.profile_image_url}
+          alt="Your profile picture"
+          width={96}
+          height={96}
+          className="w-24 h-24 rounded-full object-cover"
+        />
       )}
       <input
         type="file"

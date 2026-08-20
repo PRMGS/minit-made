@@ -1,5 +1,6 @@
 import { getCurrentArtist } from "@/lib/auth";
 import { contentTypeLabel } from "@/lib/constants";
+import Image from "next/image";
 
 export default async function ArtistContentPage() {
   const { supabase, artist } = await getCurrentArtist();
@@ -19,7 +20,14 @@ export default async function ArtistContentPage() {
           {content.map((c) => (
             <div key={c.id} className="card p-4">
               {c.thumbnail_url && (
-                <img src={c.thumbnail_url} alt={c.title} className="rounded-lg mb-3 aspect-video object-cover w-full" />
+                <Image
+                  src={c.thumbnail_url}
+                  alt={c.title}
+                  width={640}
+                  height={360}
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="rounded-lg mb-3 aspect-video object-cover w-full"
+                />
               )}
               <p className="font-semibold">{c.title}</p>
               <p className="text-xs text-neutral-500 mt-1">

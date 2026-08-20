@@ -11,6 +11,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import FormatCard from "./FormatCard";
+import type { PreviewMap } from "@/lib/formatPreviews";
 import { ARTIST_ERRORS, parseJsonResponse, toFriendlyMessage } from "@/lib/errors";
 import {
   ADD_ON_TYPES,
@@ -160,7 +161,7 @@ function useHydrated(): boolean {
   );
 }
 
-export default function ApplyClient() {
+export default function ApplyClient({ previews }: { previews: PreviewMap }) {
   const [step, setStep] = useState(readStep);
   const [artist, setArtist] = useState<ArtistInfo>(() => ({ ...emptyArtist, ...readDraft()?.artist }));
   const [format, setFormat] = useState<FormatId | null>(() => readDraft()?.format ?? null);
@@ -445,8 +446,8 @@ export default function ApplyClient() {
                 key={f.id}
                 name={f.name}
                 description={f.description}
-                poster={f.poster}
-                video={f.video}
+                poster={previews[f.id]?.poster}
+                video={previews[f.id]?.video}
                 selected={format === f.id}
                 onSelect={() => selectFormat(f.id)}
               />

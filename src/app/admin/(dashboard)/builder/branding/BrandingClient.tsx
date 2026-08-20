@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 type Branding = {
   logoUrl: string;
@@ -49,7 +50,9 @@ export default function BrandingClient({ initial }: { initial: Branding }) {
     <div className="max-w-xl space-y-6">
       <div>
         <label className="block text-sm text-neutral-400 mb-1">Logo</label>
-        {form.logoUrl && <img src={form.logoUrl} alt="Logo" className="h-16 mb-2" />}
+        {form.logoUrl && (
+          <Image src={form.logoUrl} alt="Logo" width={200} height={64} className="h-16 w-auto mb-2" />
+        )}
         <input type="file" accept="image/*" className="input" onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
         {uploading && <p className="text-xs text-gold mt-1">Uploading…</p>}
       </div>
