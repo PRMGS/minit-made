@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ARTIST_ERRORS, parseJsonResponse, toFriendlyMessage } from "@/lib/errors";
 import {
   ADD_ON_TYPES,
@@ -95,16 +95,71 @@ const emptyPrep: PrepInfo = {
   production_notes: "",
 };
 
+/** Everything worth surviving a trip to Stripe and back. */
+type Draft = {
+  artist: ArtistInfo;
+  format: FormatId | null;
+  music: MusicInfo;
+  prep: PrepInfo;
+  addOns: AddOnType[];
+  interview: Record<string, string>;
+  termsAccepted: boolean;
+};
+
+export const APPLY_DRAFT_KEY = "minit-made:apply-draft";
+
+/**
+ * Reads the saved draft. Returns null on the server and for a corrupt payload —
+ * a bad draft must never be able to block the form.
+ */
+function readDraft(): Partial<Draft> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const saved = sessionStorage.getItem(APPLY_DRAFT_KEY);
+    return saved ? (JSON.parse(saved) as Partial<Draft>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Which step to open on. Stripe's cancel URL carries `?step=review`; a bare
+ * index works too. Read straight off the URL rather than through
+ * useSearchParams so /apply stays statically rendered with no Suspense boundary.
+ */
+function readStep(): number {
+  if (typeof window === "undefined") return 0;
+  const raw = new URLSearchParams(window.location.search).get("step");
+  if (!raw) return 0;
+  const byName = STEPS.findIndex((s) => s.toLowerCase() === raw.toLowerCase());
+  const index = byName >= 0 ? byName : Number(raw);
+  return Number.isInteger(index) && index >= 0 && index < STEPS.length ? index : 0;
+}
+
+/**
+ * True once the client has taken over from the server-rendered HTML.
+ * useSyncExternalStore rather than a mount effect: restoring a draft by calling
+ * setState inside an effect triggers a cascading re-render of the whole wizard.
+ */
+const subscribeToNothing = () => () => {};
+function useHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeToNothing,
+    () => true,
+    () => false
+  );
+}
+
 export default function ApplyClient() {
-  const [step, setStep] = useState(0);
-  const [artist, setArtist] = useState<ArtistInfo>(emptyArtist);
-  const [format, setFormat] = useState<FormatId | null>(null);
+  const [step, setStep] = useState(readStep);
+  const [artist, setArtist] = useState<ArtistInfo>(() => ({ ...emptyArtist, ...readDraft()?.artist }));
+  const [format, setFormat] = useState<FormatId | null>(() => readDraft()?.format ?? null);
   const [batch, setBatch] = useState<{ shoot_date: string; location: string } | null>(null);
-  const [music, setMusic] = useState<MusicInfo>(emptyMusic);
-  const [prep, setPrep] = useState<PrepInfo>(emptyPrep);
-  const [addOns, setAddOns] = useState<AddOnType[]>([]);
-  const [interview, setInterview] = useState<Record<string, string>>({});
-  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [music, setMusic] = useState<MusicInfo>(() => ({ ...emptyMusic, ...readDraft()?.music }));
+  const [prep, setPrep] = useState<PrepInfo>(() => ({ ...emptyPrep, ...readDraft()?.prep }));
+  const [addOns, setAddOns] = useState<AddOnType[]>(() => readDraft()?.addOns ?? []);
+  const [interview, setInterview] = useState<Record<string, string>>(() => readDraft()?.interview ?? {});
+  const [termsAccepted, setTermsAccepted] = useState(() => readDraft()?.termsAccepted ?? false);
   const [pricing, setPricing] = useState<{
     base_price: number;
     add_ons_total: number;
@@ -116,6 +171,24 @@ export default function ApplyClient() {
   const [uploading, setUploading] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * Draft persistence. Stripe's cancel URL sends artists back here mid-application,
+   * and a refresh or an accidental back is just as easy to hit — without this,
+   * seven steps of typing are gone. sessionStorage rather than localStorage so a
+   * shared phone doesn't hand the next person someone else's contact details.
+   */
+  const hydrated = useHydrated();
+
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      const draft: Draft = { artist, format, music, prep, addOns, interview, termsAccepted };
+      sessionStorage.setItem(APPLY_DRAFT_KEY, JSON.stringify(draft));
+    } catch {
+      // Storage blocked or full (private browsing) — the form still works.
+    }
+  }, [hydrated, artist, format, music, prep, addOns, interview, termsAccepted]);
 
   useEffect(() => {
     if (!format) return;

@@ -1,37 +1,43 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/safeNext";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
 /**
- * Only allow same-origin relative paths. A bare `next` param on an
- * authenticated redirect is an open redirect: `//evil.com` is protocol-relative
- * and would send a freshly signed-in artist off-site.
+ * Single landing point for every emailed sign-in link.
+ *
+ * Two shapes arrive here:
+ *   - `token_hash` — magic links we mint ourselves and deliver through Resend.
+ *   - `code`       — Supabase's own PKCE links (password recovery), where the
+ *                    verifier lives in a cookie this route can read.
+ *
+ * Recovery previously pointed straight at /artist/login, which has no way to
+ * consume either shape, so a reset link dropped the artist back on the form they
+ * were already locked out of.
  */
-function safeNext(raw: string | null): string {
-  if (!raw) return "/artist/dashboard";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/artist/dashboard";
-  return raw;
-}
-
 export async function GET(req: NextRequest) {
   const url = req.nextUrl;
   const tokenHash = url.searchParams.get("token_hash");
+  const code = url.searchParams.get("code");
   const type = (url.searchParams.get("type") ?? "magiclink") as EmailOtpType;
-  const next = safeNext(url.searchParams.get("next"));
+  const next = safeNext(url.searchParams.get("next"), "/artist/dashboard");
 
-  if (!tokenHash) {
-    return NextResponse.redirect(new URL("/artist/access?expired=1", url.origin));
-  }
+  const expired = () => NextResponse.redirect(new URL("/artist/access?expired=1", url.origin));
+
+  if (!tokenHash && !code) return expired();
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.verifyOtp({ type, token_hash: tokenHash });
+
+  const { error } = code
+    ? await supabase.auth.exchangeCodeForSession(code)
+    : await supabase.auth.verifyOtp({ type, token_hash: tokenHash! });
 
   if (error) {
     // Expired or already-used link — send them somewhere they can get a new one.
-    console.warn("[auth:callback] verifyOtp failed", { message: error.message });
-    return NextResponse.redirect(new URL("/artist/access?expired=1", url.origin));
+    console.warn("[auth:callback] verification failed", { flow: code ? "code" : "token_hash", message: error.message });
+    return expired();
   }
 
   return NextResponse.redirect(new URL(next, url.origin));

@@ -37,7 +37,9 @@ export async function middleware(request: NextRequest) {
       !path.startsWith("/artist/access") &&
       !path.startsWith("/artist/forgot-password")) ||
     (path.startsWith("/admin") && !path.startsWith("/admin/login")) ||
-    (path.startsWith("/crew") && !path.startsWith("/crew/login"));
+    (path.startsWith("/crew") &&
+      !path.startsWith("/crew/login") &&
+      !path.startsWith("/crew/signup"));
 
   if (isProtected && !user) {
     const portal = path.startsWith("/admin") ? "admin" : path.startsWith("/crew") ? "crew" : "artist";
