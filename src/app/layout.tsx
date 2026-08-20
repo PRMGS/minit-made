@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import "./globals.css";
 import { siteUrlSafe } from "@/lib/env";
+import { Analytics } from "@vercel/analytics/next";
 
 const montserrat = Montserrat({
   variable: "--font-montserrat",
@@ -43,7 +44,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" className={`${montserrat.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-black text-foreground">{children}</body>
+      <body className="min-h-full flex flex-col bg-black text-foreground">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
