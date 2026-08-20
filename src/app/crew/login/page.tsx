@@ -4,6 +4,7 @@ import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { friendlyAuthError } from "@/lib/errors";
+import { safeNext } from "@/lib/safeNext";
 import Link from "next/link";
 
 function LoginForm() {
@@ -25,7 +26,7 @@ function LoginForm() {
       setLoading(false);
       return;
     }
-    router.push(params.get("next") ?? "/crew/dashboard");
+    router.push(safeNext(params.get("next"), "/crew/dashboard"));
     router.refresh();
   }
 

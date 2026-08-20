@@ -13,8 +13,12 @@ export const ARTIST_ERRORS = {
 
   // Uploads
   uploadFailed: "That file didn't make it up. Give it another try.",
-  fileTooLarge: "That file's too big — keep it under 100MB and try again.",
+  /** Named limit, because "too big" without a number gives nobody a next step. */
+  fileTooLarge: (maxBytes: number) =>
+    `That file's too big — keep it under ${Math.round(maxBytes / (1024 * 1024))}MB and try again.`,
   invalidFile: "We couldn't read that file. Try an MP3, WAV, or M4A.",
+  uploadRateLimited:
+    "That's a lot of uploads in a short window. Give it a few minutes, then try again.",
 
   // Application / checkout
   termsRequired: "You'll need to accept the terms before we can lock your spot.",
