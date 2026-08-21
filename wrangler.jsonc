@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "minit-made",
+  "main": ".open-next/worker.js",
+
+  // workerd 1.20260820 is what's installed; the date must not be in the future.
+  "compatibility_date": "2026-08-20",
+
+  // nodejs_compat is required: the app uses node:crypto (randomUUID,
+  // timingSafeEqual) and Buffer in the upload and bootstrap routes.
+  // global_fetch_strictly_public is recommended by the adapter so fetches to our
+  // own domain go out through the public internet rather than looping internally.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+
+  // Lets the worker call itself, which the adapter uses for cache revalidation.
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "minit-made"
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+
+  // Deliberately NOT configured yet:
+  //  - r2_buckets / NEXT_INC_CACHE_R2_BUCKET for ISR. The only revalidating
+  //    route is /sitemap.xml (1h). R2 needs a payment method on file, so this is
+  //    left out to keep the deployment on the free tier. Add it if ISR matters.
+  //  - images binding. Cloudflare Images is a paid product; if next/image fails
+  //    to optimise, the fallback is `images: { unoptimized: true }` in
+  //    next.config.ts.
+}

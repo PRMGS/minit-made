@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 /**
  * Allow next/image to optimise the images we actually serve: Supabase Storage
@@ -35,3 +36,9 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+/**
+ * Makes Cloudflare bindings available during `next dev`, so local development
+ * behaves like the deployed worker rather than diverging from it.
+ */
+initOpenNextCloudflareForDev();

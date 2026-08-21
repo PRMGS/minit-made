@@ -6,7 +6,7 @@ import { sendBookingConfirmationEmail, sendOpsAlert } from "@/lib/email";
 import { provisionAndCreateAccessLink } from "@/lib/artistAccount";
 import { formatMoney } from "@/lib/constants";
 
-// Signature verification needs the raw body and Node crypto.
+// Signature verification needs the raw body.
 export const runtime = "nodejs";
 
 /**
@@ -33,8 +33,18 @@ export async function POST(req: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(body, signature, process.env.STRIPE_WEBHOOK_SECRET);
-  } catch {
+    // Async, not the synchronous constructEvent. On a Web Crypto runtime — which
+    // is what this worker is under the Cloudflare adapter — the sync path throws
+    // "SubtleCryptoProvider cannot be used in a synchronous context" and every
+    // event would fail verification. The async form behaves identically on Node,
+    // so this is correct on both runtimes.
+    event = await stripe.webhooks.constructEventAsync(
+      body,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (e) {
+    console.warn("[stripe:webhook] signature verification failed", e);
     return NextResponse.json({ error: "Signature verification failed" }, { status: 400 });
   }
 

@@ -13,6 +13,11 @@ export function getStripe(): Stripe {
   if (!client) {
     client = new Stripe(requireEnv("STRIPE_SECRET_KEY"), {
       apiVersion: "2026-07-29.dahlia",
+      // The SDK otherwise picks its Node HTTP client, which has no working
+      // transport on workerd — outbound calls to Stripe hang indefinitely with
+      // no error and no log line. The fetch client is required on Workers and is
+      // equally valid on Node 18+, so this is correct on both runtimes.
+      httpClient: Stripe.createFetchHttpClient(),
     });
   }
   return client;
