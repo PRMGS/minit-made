@@ -7,6 +7,8 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.15"
   }
@@ -152,7 +154,6 @@ export type Database = {
       }
       bookings: {
         Row: {
-          needs_scheduling: boolean
           add_ons_total: number
           artist_id: string
           assigned_slot_time: string | null
@@ -161,6 +162,7 @@ export type Database = {
           created_at: string
           format: string
           id: string
+          needs_scheduling: boolean
           payment_status: string
           pricing_snapshot: Json | null
           status: string
@@ -173,7 +175,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          needs_scheduling?: boolean
           add_ons_total?: number
           artist_id: string
           assigned_slot_time?: string | null
@@ -182,6 +183,7 @@ export type Database = {
           created_at?: string
           format: string
           id?: string
+          needs_scheduling?: boolean
           payment_status?: string
           pricing_snapshot?: Json | null
           status?: string
@@ -194,7 +196,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          needs_scheduling?: boolean
           add_ons_total?: number
           artist_id?: string
           assigned_slot_time?: string | null
@@ -203,6 +204,7 @@ export type Database = {
           created_at?: string
           format?: string
           id?: string
+          needs_scheduling?: boolean
           payment_status?: string
           pricing_snapshot?: Json | null
           status?: string
@@ -230,6 +232,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      calendar_integrations: {
+        Row: {
+          calendar_id: string
+          connected_at: string
+          connected_by: string
+          refresh_token: string
+          singleton: boolean
+        }
+        Insert: {
+          calendar_id: string
+          connected_at?: string
+          connected_by: string
+          refresh_token: string
+          singleton?: boolean
+        }
+        Update: {
+          calendar_id?: string
+          connected_at?: string
+          connected_by?: string
+          refresh_token?: string
+          singleton?: boolean
+        }
+        Relationships: []
       }
       content_items: {
         Row: {
@@ -336,6 +362,63 @@ export type Database = {
         }
         Relationships: []
       }
+      email_deliveries: {
+        Row: {
+          attempts: number
+          booking_id: string | null
+          content_id: string | null
+          created_at: string
+          email_type: string
+          error: string | null
+          id: string
+          provider_id: string | null
+          recipient: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          booking_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          email_type: string
+          error?: string | null
+          id?: string
+          provider_id?: string | null
+          recipient: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          booking_id?: string | null
+          content_id?: string | null
+          created_at?: string
+          email_type?: string
+          error?: string | null
+          id?: string
+          provider_id?: string | null
+          recipient?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_deliveries_booking_id_fkey"
+            columns: ["booking_id"]
+            isOneToOne: false
+            referencedRelation: "bookings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_deliveries_content_id_fkey"
+            columns: ["content_id"]
+            isOneToOne: false
+            referencedRelation: "content_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       interview_responses: {
         Row: {
           booking_id: string
@@ -382,6 +465,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      leads: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          source: string | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          source?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string | null
+        }
+        Relationships: []
       }
       music_submissions: {
         Row: {
@@ -754,114 +858,6 @@ export type Database = {
           },
         ]
       }
-      leads: {
-        Row: {
-          id: string
-          email: string
-          source: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          email: string
-          source?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          email?: string
-          source?: string | null
-          created_at?: string
-        }
-        Relationships: []
-      }
-      site_settings: {
-        Row: {
-          id: string
-          key: string
-          value: Json
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          key: string
-          value?: Json
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          key?: string
-          value?: Json
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      stripe_webhook_events: {
-        Row: {
-          event_id: string
-          event_type: string
-          booking_id: string | null
-          outcome: string | null
-          received_at: string
-        }
-        Insert: {
-          event_id: string
-          event_type: string
-          booking_id?: string | null
-          outcome?: string | null
-          received_at?: string
-        }
-        Update: {
-          event_id?: string
-          event_type?: string
-          booking_id?: string | null
-          outcome?: string | null
-          received_at?: string
-        }
-        Relationships: []
-      }
-      email_deliveries: {
-        Row: {
-          id: string
-          booking_id: string | null
-          content_id: string | null
-          recipient: string
-          email_type: string
-          status: string
-          provider_id: string | null
-          error: string | null
-          attempts: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          booking_id?: string | null
-          content_id?: string | null
-          recipient: string
-          email_type: string
-          status: string
-          provider_id?: string | null
-          error?: string | null
-          attempts?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          booking_id?: string | null
-          content_id?: string | null
-          recipient?: string
-          email_type?: string
-          status?: string
-          provider_id?: string | null
-          error?: string | null
-          attempts?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       shoot_batches: {
         Row: {
           call_sheet_sent: boolean
@@ -869,6 +865,8 @@ export type Database = {
           created_at: string
           current_artists: number
           format: string
+          google_calendar_event_id: string | null
+          google_calendar_sync_error: string | null
           id: string
           location: string
           max_artists: number
@@ -883,6 +881,8 @@ export type Database = {
           created_at?: string
           current_artists?: number
           format: string
+          google_calendar_event_id?: string | null
+          google_calendar_sync_error?: string | null
           id?: string
           location: string
           max_artists?: number
@@ -897,6 +897,8 @@ export type Database = {
           created_at?: string
           current_artists?: number
           format?: string
+          google_calendar_event_id?: string | null
+          google_calendar_sync_error?: string | null
           id?: string
           location?: string
           max_artists?: number
@@ -907,57 +909,81 @@ export type Database = {
         }
         Relationships: []
       }
+      site_settings: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
+      stripe_webhook_events: {
+        Row: {
+          booking_id: string | null
+          event_id: string
+          event_type: string
+          outcome: string | null
+          received_at: string
+        }
+        Insert: {
+          booking_id?: string | null
+          event_id: string
+          event_type: string
+          outcome?: string | null
+          received_at?: string
+        }
+        Update: {
+          booking_id?: string | null
+          event_id?: string
+          event_type?: string
+          outcome?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      current_artist_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      current_crew_id: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      is_admin: {
-        Args: Record<PropertyKey, never>
-        Returns: boolean
-      }
-      claim_batch_slot: {
-        Args: { p_batch_id: string | null }
-        Returns: "claimed" | "full" | "missing"
-      }
-      reassign_booking_batch: {
-        Args: {
-          p_booking_id: string
-          p_batch_id: string | null
-          p_slot_time: string | null
-          p_status?: string | null
-        }
-        Returns: {
-          result: "ok" | "booking_not_found"
-          slot?: "claimed" | "not_needed"
-        }
-      }
+      claim_batch_slot: { Args: { p_batch_id: string }; Returns: string }
       confirm_booking_payment: {
         Args: {
           p_booking_id: string
+          p_checkout_session_id: string
+          p_payment_intent_id: string
           p_stripe_event_id: string
-          p_payment_intent_id: string | null
-          p_checkout_session_id: string | null
         }
-        Returns: {
-          result: "confirmed" | "duplicate_event" | "already_confirmed" | "booking_not_found"
-          slot?: "claimed" | "full" | "missing" | "none"
-          needs_scheduling?: boolean
-        }
+        Returns: Json
       }
+      current_artist_id: { Args: never; Returns: string }
+      current_crew_id: { Args: never; Returns: string }
       expire_booking_payment: {
         Args: { p_booking_id: string; p_stripe_event_id: string }
-        Returns: {
-          result: "expired" | "noop" | "duplicate_event"
+        Returns: Json
+      }
+      is_admin: { Args: never; Returns: boolean }
+      reassign_booking_batch: {
+        Args: {
+          p_batch_id: string
+          p_booking_id: string
+          p_slot_time: string
+          p_status?: string
         }
+        Returns: Json
       }
     }
     Enums: {
@@ -969,3 +995,125 @@ export type Database = {
   }
 }
 
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

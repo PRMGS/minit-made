@@ -17,6 +17,11 @@ export default async function AdminSchedulePage() {
               <div>
                 <p className="font-bold text-gold">{b.format.replace(/_/g, " ")}</p>
                 <p className="text-sm text-neutral-400">{b.shoot_date} · {b.location}</p>
+                {b.google_calendar_sync_error && (
+                  <p className="text-xs text-red-400 mt-1" title={b.google_calendar_sync_error}>
+                    ⚠ Calendar sync failed — see Settings &gt; Calendar
+                  </p>
+                )}
               </div>
               <span className={`text-xs uppercase px-2 py-1 rounded-full border ${
                 b.status === "open" ? "border-green-500 text-green-400" :

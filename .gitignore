@@ -45,3 +45,11 @@ next-env.d.ts
 /.open-next
 .dev.vars
 .wrangler
+cloudflare-env.d.ts
+*.cpuprofile
+
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

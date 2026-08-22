@@ -18,14 +18,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
   if (update.status === "published") update.published_at = new Date().toISOString();
 
-  const { data: current } = await ctx.supabase.from("pages").select("id").eq("id", id).maybeSingle();
+  const { data: current } = await ctx.supabase.from("pages").select("id, status").eq("id", id).maybeSingle();
   if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { error } = await ctx.supabase.from("pages").update(update as never).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Snapshot the published content so a bad edit can be traced back.
-  if ("content" in body && update.status === "published") {
+  // Snapshot on any save that leaves the page published — not just the
+  // request that flips it to published — so an edit to an already-live page
+  // still gets a version recorded. Plain Save never sends `status`, so the
+  // page's own current status decides whether this save is "live" or not.
+  const resultingStatus = update.status ?? current.status;
+  if ("content" in body && resultingStatus === "published") {
     const { data: lastVersion } = await ctx.supabase
       .from("page_versions")
       .select("version_number")

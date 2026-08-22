@@ -60,19 +60,19 @@ export default async function AdminBookingsPage({
 
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-bold">Bookings</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-3 mb-8">
+        <h1 className="text-3xl font-bold tracking-tight">Bookings</h1>
         <p className="text-sm text-neutral-500 tabular-nums">
           {total} total · page {page} of {lastPage}
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-5">
         {FILTERS.map((f) => (
           <Link
             key={f.key}
             href={`/admin/bookings?filter=${f.key}`}
-            className={`px-3 py-1.5 rounded-lg text-xs border ${
+            className={`px-3.5 py-1.5 rounded-lg text-xs border ${
               filter === f.key ? "border-gold text-gold" : "border-border text-neutral-400 hover:border-neutral-600"
             }`}
           >
@@ -81,7 +81,7 @@ export default async function AdminBookingsPage({
         ))}
       </div>
 
-      <form className="mb-4 flex gap-2" action="/admin/bookings">
+      <form className="mb-5 flex gap-2" action="/admin/bookings">
         <input type="hidden" name="filter" value={filter} />
         <label htmlFor="booking-search" className="sr-only">Search by artist name or email</label>
         <input
@@ -99,15 +99,10 @@ export default async function AdminBookingsPage({
           <Link
             key={b.id}
             href={`/admin/bookings/${b.id}`}
-            className="p-4 flex flex-wrap justify-between items-center gap-2 text-sm hover:bg-white/5"
+            className="p-5 flex flex-wrap justify-between items-center gap-3 text-sm hover:bg-white/5"
           >
             <div>
-              <p className="font-semibold">
-                {b.artists?.artist_name}
-                {b.needs_scheduling && b.payment_status === "completed" && (
-                  <span className="ml-2 text-xs text-gold">needs scheduling</span>
-                )}
-              </p>
+              <p className="font-semibold">{b.artists?.artist_name}</p>
               <p className="text-neutral-500">
                 {formatLabel(b.format)} ·{" "}
                 {b.shoot_batches?.shoot_date
@@ -115,9 +110,17 @@ export default async function AdminBookingsPage({
                   : "Unscheduled"}
               </p>
             </div>
-            <p className="text-neutral-400">
-              {bookingStatusLabel(b.status)} / {b.payment_status}
-            </p>
+            <div className="flex gap-1.5 flex-wrap">
+              <span className={`pill ${b.payment_status === "completed" ? "pill-paid" : "pill-unpaid"}`}>
+                {b.payment_status === "completed" ? "Paid" : "Unpaid"}
+              </span>
+              <span className={`pill ${b.status === "cancelled" ? "pill-cancelled" : "pill-neutral"}`}>
+                {bookingStatusLabel(b.status)}
+              </span>
+              {b.needs_scheduling && b.payment_status === "completed" && (
+                <span className="pill pill-unpaid">Needs slot</span>
+              )}
+            </div>
             <p className="text-gold font-semibold tabular-nums">{formatMoney(b.total_price)}</p>
           </Link>
         ))}

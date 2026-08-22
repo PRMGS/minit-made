@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 type NavItem = { label: string; href: string };
-type Nav = { header: NavItem[]; footer: NavItem[] };
+export type Nav = { header: NavItem[]; footer: NavItem[] };
+export const DEFAULT_NAV: Nav = { header: [], footer: [] };
 
 function NavList({ title, items, onChange }: { title: string; items: NavItem[]; onChange: (items: NavItem[]) => void }) {
   function update(i: number, patch: Partial<NavItem>) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth";
 import { parseJson } from "@/lib/apiRequest";
 import { adminBatchSchema } from "@/lib/apiSchemas";
+import { syncBatchToCalendar } from "@/lib/googleCalendar";
 
 export async function POST(req: NextRequest) {
   const ctx = await requireAdminApi();
@@ -25,5 +26,7 @@ export async function POST(req: NextRequest) {
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ batch: data });
+
+  const sync = await syncBatchToCalendar(data.id);
+  return NextResponse.json({ batch: data, calendarSync: sync.status });
 }

@@ -11,6 +11,7 @@ export default function CrewSignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = useState(false);
 
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -18,20 +19,26 @@ export default function CrewSignupPage() {
     setError(null);
     const supabase = createClient();
 
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/auth/callback?next=/crew/dashboard` },
+    });
     if (signUpError || !data.user) {
       setError(friendlyAuthError(signUpError?.message));
       setLoading(false);
       return;
     }
 
-    const linkRes = await fetch("/api/auth/signup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ auth_user_id: data.user.id, email, role: "crew" }),
-    });
+    if (!data.session) {
+      setPendingConfirmation(true);
+      setLoading(false);
+      return;
+    }
+
+    const linkRes = await fetch("/api/auth/signup", { method: "POST" });
     const linkData = await linkRes.json();
-    if (linkData.error) {
+    if (!linkRes.ok) {
       setError(linkData.error);
       setLoading(false);
       return;
@@ -44,14 +51,20 @@ export default function CrewSignupPage() {
     <main className="flex-1 max-w-sm mx-auto w-full px-6 py-24">
       <h1 className="text-2xl font-bold mb-2">Set Up Your Crew Account</h1>
       <p className="text-sm text-neutral-400 mb-6">Use the email admin added you with.</p>
-      <form onSubmit={handleSignup} className="space-y-4">
-        <input type="email" required placeholder="Email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <input type="password" required minLength={8} placeholder="Password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
-        {error && <p className="text-red-400 text-sm">{error}</p>}
-        <button type="submit" disabled={loading} className="btn-gold w-full">
-          {loading ? "Creating account…" : "Set Up Account"}
-        </button>
-      </form>
+      {pendingConfirmation ? (
+        <p className="text-sm text-neutral-300">
+          Check your email to confirm your account, then log in.
+        </p>
+      ) : (
+        <form onSubmit={handleSignup} className="space-y-4">
+          <input type="email" required placeholder="Email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <input type="password" required minLength={8} placeholder="Password" className="input" value={password} onChange={(e) => setPassword(e.target.value)} />
+          {error && <p className="text-red-400 text-sm">{error}</p>}
+          <button type="submit" disabled={loading} className="btn-gold w-full">
+            {loading ? "Creating account…" : "Set Up Account"}
+          </button>
+        </form>
+      )}
     </main>
   );
 }

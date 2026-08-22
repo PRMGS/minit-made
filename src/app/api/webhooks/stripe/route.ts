@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendBookingConfirmationEmail, sendOpsAlert } from "@/lib/email";
 import { provisionAndCreateAccessLink } from "@/lib/artistAccount";
 import { formatMoney } from "@/lib/constants";
+import { syncBatchToCalendar } from "@/lib/googleCalendar";
 
 // Signature verification needs the raw body.
 export const runtime = "nodejs";
@@ -190,6 +191,28 @@ async function handlePaid(event: Stripe.Event) {
       `Recipient: ${email ?? "unknown"}`,
       `Error: ${send.detail ?? "unknown"}`,
     ]);
+  }
+
+  // Money is already captured and the response below is already decided as
+  // success — a Calendar failure here must never turn this into a 500 (Stripe
+  // would retry an already-confirmed payment). Wrapped defensively even though
+  // syncBatchToCalendar itself never throws.
+  if (outcome.slot === "claimed") {
+    try {
+      const { data: finalBooking } = await supabase.from("bookings").select("batch_id").eq("id", bookingId).maybeSingle();
+      if (finalBooking?.batch_id) {
+        const sync = await syncBatchToCalendar(finalBooking.batch_id);
+        if (sync.status === "failed") {
+          console.error("[stripe:webhook] calendar sync failed", {
+            bookingId,
+            batchId: finalBooking.batch_id,
+            detail: sync.detail,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[stripe:webhook] calendar sync threw", { bookingId, error: e });
+    }
   }
 
   return NextResponse.json({ received: true, outcome: "confirmed" });

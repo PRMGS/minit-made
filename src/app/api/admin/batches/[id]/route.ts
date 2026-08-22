@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApi } from "@/lib/auth";
 import { parseJson } from "@/lib/apiRequest";
 import { adminBatchPatchSchema } from "@/lib/apiSchemas";
+import { syncBatchToCalendar, deleteBatchCalendarEvent } from "@/lib/googleCalendar";
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const ctx = await requireAdminApi();
@@ -20,7 +21,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { error } = await ctx.supabase.from("shoot_batches").update(update as never).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
+
+  const sync = update.status === "cancelled" ? await deleteBatchCalendarEvent(id) : await syncBatchToCalendar(id);
+  return NextResponse.json({ success: true, calendarSync: sync.status });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -42,7 +45,10 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
     );
   }
 
+  // Delete the Calendar event first — it needs the row alive to read the event id.
+  const sync = await deleteBatchCalendarEvent(id);
+
   const { error } = await ctx.supabase.from("shoot_batches").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, calendarSync: sync.status });
 }

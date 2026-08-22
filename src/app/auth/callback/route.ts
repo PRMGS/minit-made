@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { linkAuthUserToRecord } from "@/lib/accountLink";
 import { safeNext } from "@/lib/safeNext";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
@@ -38,6 +40,20 @@ export async function GET(req: NextRequest) {
     // Expired or already-used link — send them somewhere they can get a new one.
     console.warn("[auth:callback] verification failed", { flow: code ? "code" : "token_hash", message: error.message });
     return expired();
+  }
+
+  // Best-effort account link (e.g. a just-confirmed signup, or a returning
+  // artist's first magic-link visit). Idempotent and never blocks the
+  // redirect — a failure here just means the dashboard will ask again.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user?.email) {
+    try {
+      await linkAuthUserToRecord(createAdminClient(), { id: user.id, email: user.email });
+    } catch (e) {
+      console.error("[auth:callback] link failed", e);
+    }
   }
 
   return NextResponse.redirect(new URL(next, url.origin));

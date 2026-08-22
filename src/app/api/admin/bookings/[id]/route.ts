@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseJson } from "@/lib/apiRequest";
 import { adminBookingPatchSchema } from "@/lib/apiSchemas";
 import { sendShootScheduledEmail } from "@/lib/email";
+import { syncBatchToCalendar } from "@/lib/googleCalendar";
 
 export const runtime = "nodejs";
 
@@ -30,6 +31,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   if (touchesSchedule) {
     const admin = createAdminClient();
+
+    // Read before the RPC moves it — the RPC's return value doesn't carry the
+    // prior batch_id, and the old batch's Calendar roster needs updating too.
+    const { data: existing } = await admin.from("bookings").select("batch_id").eq("id", id).maybeSingle();
+    const oldBatchId = existing?.batch_id ?? null;
+
     const { data, error } = await admin.rpc("reassign_booking_batch", {
       p_booking_id: id,
       p_batch_id: body.batch_id ?? null,
@@ -76,7 +83,19 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
-    return NextResponse.json({ success: true, notified });
+    // Roster changed on whichever batches were involved — sync both so an
+    // artist moving between batches disappears from one event and appears on
+    // the other. De-duped so an unchanged batch_id only syncs once.
+    const newBatchId = body.batch_id ?? null;
+    const batchIdsToSync = [...new Set([oldBatchId, newBatchId].filter((v): v is string => Boolean(v)))];
+    const syncResults = await Promise.allSettled(batchIdsToSync.map((batchId) => syncBatchToCalendar(batchId)));
+    const calendarSync = !batchIdsToSync.length
+      ? "skipped"
+      : syncResults.some((r) => r.status === "fulfilled" && r.value.status === "failed")
+        ? "failed"
+        : "synced";
+
+    return NextResponse.json({ success: true, notified, calendarSync });
   }
 
   const update: Record<string, unknown> = {};

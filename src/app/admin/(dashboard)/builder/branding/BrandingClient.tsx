@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-type Branding = {
+export type Branding = {
   logoUrl: string;
   primaryColor: string;
   secondaryColor: string;
@@ -13,6 +13,17 @@ type Branding = {
   buttonStyle: "rounded" | "squared";
   headingFont: string;
   bodyFont: string;
+};
+
+export const DEFAULT_BRANDING: Branding = {
+  logoUrl: "",
+  primaryColor: "#ffd700",
+  secondaryColor: "#b8960a",
+  textColor: "#f5f5f5",
+  backgroundColor: "#000000",
+  buttonStyle: "rounded",
+  headingFont: "",
+  bodyFont: "",
 };
 
 export default function BrandingClient({ initial }: { initial: Branding }) {

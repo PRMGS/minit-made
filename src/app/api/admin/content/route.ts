@@ -15,6 +15,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return parsed.response;
   const body = parsed.data;
 
+  const youtubeId = body.youtube_url ? extractYoutubeId(body.youtube_url) : null;
+
   const { data, error } = await ctx.supabase
     .from("content_items")
     .insert({
@@ -24,9 +26,9 @@ export async function POST(req: NextRequest) {
       title: body.title,
       description: body.description ?? null,
       youtube_url: body.youtube_url ?? null,
-      youtube_video_id: body.youtube_url ? extractYoutubeId(body.youtube_url) : null,
+      youtube_video_id: youtubeId,
       youtube_playlist_url: body.youtube_playlist_url ?? null,
-      thumbnail_url: body.thumbnail_url ?? null,
+      thumbnail_url: body.thumbnail_url ?? (youtubeId ? `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg` : null),
       content_type: body.content_type,
       status: body.status,
       featured: body.featured,

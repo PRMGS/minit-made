@@ -31,8 +31,18 @@ export default function PricingClient({ configs }: { configs: Config[] }) {
 }
 
 function PricingCard({ config, onSaved }: { config: Config; onSaved: () => void }) {
-  const [form, setForm] = useState<Record<string, number>>(
-    Object.fromEntries(FIELDS.map((f) => [f.key, Number(config[f.key])]))
+  // What's actually typed, kept separate from the parsed cents value.
+  //
+  // The field previously derived its `value` from cents on every render
+  // (`(cents / 100).toFixed(2)`) and re-parsed on every keystroke. A
+  // type="number" input reports `e.target.value` as "" for anything
+  // mid-typed that isn't yet a complete valid number (a bare "300.", an
+  // empty field, "300.5" the instant before the 5 lands) — that empty
+  // string round-tripped through Number() → 0 → back through toFixed(2),
+  // snapping the field to "0.00" or reverting the keystroke entirely. A raw
+  // string per field, parsed only at save time, lets someone actually type.
+  const [text, setText] = useState<Record<string, string>>(
+    Object.fromEntries(FIELDS.map((f) => [f.key, (Number(config[f.key]) / 100).toFixed(2)]))
   );
   const [active, setActive] = useState(config.active);
   const [reason, setReason] = useState("");
@@ -42,8 +52,10 @@ function PricingCard({ config, onSaved }: { config: Config; onSaved: () => void 
   async function save() {
     setSaving(true);
     setSaved(false);
-    // form already stores cents
-    const body: Record<string, unknown> = { ...form, active, reason };
+    const cents = Object.fromEntries(
+      FIELDS.map((f) => [f.key, Math.round((Number(text[f.key as string]) || 0) * 100)])
+    );
+    const body: Record<string, unknown> = { ...cents, active, reason };
 
     await fetch(`/api/admin/pricing/${config.id}`, {
       method: "PATCH",
@@ -54,6 +66,8 @@ function PricingCard({ config, onSaved }: { config: Config; onSaved: () => void 
     setSaved(true);
     onSaved();
   }
+
+  const total = FIELDS.reduce((sum, f) => sum + (Number(text[f.key as string]) || 0) * 100, 0);
 
   return (
     <div className="card p-5">
@@ -70,12 +84,16 @@ function PricingCard({ config, onSaved }: { config: Config; onSaved: () => void 
             <div className="flex items-center gap-1">
               <span className="text-neutral-500">$</span>
               <input
-                type="number"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 className="input"
-                value={(form[f.key as string] / 100).toFixed(2)}
-                onChange={(e) =>
-                  setForm({ ...form, [f.key as string]: Math.round(Number(e.target.value) * 100) })
+                value={text[f.key as string]}
+                onChange={(e) => setText({ ...text, [f.key as string]: e.target.value })}
+                onBlur={() =>
+                  setText((t) => ({
+                    ...t,
+                    [f.key as string]: (Number(t[f.key as string]) || 0).toFixed(2),
+                  }))
                 }
               />
             </div>
@@ -87,9 +105,7 @@ function PricingCard({ config, onSaved }: { config: Config; onSaved: () => void 
         <input className="input" value={reason} onChange={(e) => setReason(e.target.value)} />
       </div>
       <div className="mt-4 flex items-center justify-between">
-        <p className="text-xs text-neutral-500">
-          Current total: {formatMoney(Object.values(form).reduce((a, b) => a + b, 0))}
-        </p>
+        <p className="text-xs text-neutral-500">Current total: {formatMoney(total)}</p>
         <button onClick={save} disabled={saving} className="btn-gold">
           {saving ? "Saving…" : saved ? "Saved ✓" : "Save Changes"}
         </button>

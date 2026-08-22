@@ -22,6 +22,8 @@ const baseSchema = z.object({
   RESEND_API_KEY: z.string().startsWith("re_", "must start with re_"),
   EMAIL_FROM: z.string().email(),
   NEXT_PUBLIC_SITE_URL: z.string().url(),
+  GOOGLE_OAUTH_CLIENT_ID: z.string().min(1),
+  GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1),
 });
 
 /**
@@ -78,6 +80,8 @@ function rawEnv() {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     EMAIL_FROM: process.env.EMAIL_FROM,
     NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
+    GOOGLE_OAUTH_CLIENT_ID: process.env.GOOGLE_OAUTH_CLIENT_ID,
+    GOOGLE_OAUTH_CLIENT_SECRET: process.env.GOOGLE_OAUTH_CLIENT_SECRET,
   };
 }
 

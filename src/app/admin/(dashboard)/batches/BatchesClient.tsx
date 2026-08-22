@@ -90,6 +90,11 @@ export default function BatchesClient({ batches }: { batches: Batch[] }) {
             <div>
               <p className="font-semibold">{b.format.replace(/_/g, " ")}</p>
               <p className="text-neutral-400">{b.shoot_date} · {b.location}</p>
+              {b.google_calendar_sync_error && (
+                <p className="text-xs text-red-400 mt-1" title={b.google_calendar_sync_error}>
+                  ⚠ Calendar sync failed — see Settings &gt; Calendar
+                </p>
+              )}
             </div>
             <p className={`text-neutral-500 tabular-nums ${b.current_artists >= b.max_artists ? "text-gold" : ""}`}>
               {b.current_artists}/{b.max_artists} artists

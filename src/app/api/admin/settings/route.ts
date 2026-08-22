@@ -13,8 +13,7 @@ export async function PATCH(req: NextRequest) {
 
   const { error } = await ctx.supabase
     .from("site_settings")
-    .update({ value, updated_at: new Date().toISOString() } as never)
-    .eq("key", key);
+    .upsert({ key, value, updated_at: new Date().toISOString() } as never, { onConflict: "key" });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ success: true });

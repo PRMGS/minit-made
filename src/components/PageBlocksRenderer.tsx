@@ -7,7 +7,7 @@ export default function PageBlocksRenderer({ content }: { content: unknown }) {
   const blocks = normalizeBlocks(content);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-14 md:space-y-20">
       {blocks.map((b) => {
         const anchor = b.props.anchor;
         if (b.type === "content_feed") {
